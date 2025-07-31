@@ -146,9 +146,9 @@ CREATE TABLE bouquet_streams (
 CREATE TABLE server_nodes (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   hostname VARCHAR(128) NOT NULL,
-  ip_address INET NOT NULL,
+  ip_address VARCHAR(45) NOT NULL, -- ✅ Fix: VARCHAR(45) în loc de INET
   type ENUM('master', 'edge') DEFAULT 'edge',
-  load_weight INT DEFAULT 100, -- for load balancing
+  load_weight INT DEFAULT 100,
   is_active TINYINT DEFAULT 1,
   last_heartbeat DATETIME NULL,
   cpu_usage DECIMAL(5,2) DEFAULT 0.00,

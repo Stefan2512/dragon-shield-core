@@ -7,6 +7,7 @@ CREATE DATABASE IF NOT EXISTS dragon_shield_core
 
 USE dragon_shield_core;
 
+-- Users (Admin, Resellers, Customers)
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   parent_id BIGINT UNSIGNED DEFAULT NULL, -- for reseller hierarchy
@@ -24,7 +25,7 @@ CREATE TABLE users (
   api_token_expiry DATETIME NULL,
   fingerprint_hash VARCHAR(128) NULL, -- for device lock
   ip_lock_enabled TINYINT DEFAULT 0,
-  allowed_ip CIDR NULL, -- for IP locking
+  allowed_ip VARCHAR(45) NULL, -- IPv4/IPv6 CIDR (e.g. 192.168.1.0/24)
   credit_balance DECIMAL(10,2) DEFAULT 0.00,
   max_connections INT DEFAULT 1,
   bandwidth_limit_kbps INT DEFAULT 0, -- 0 = unlimited
@@ -36,6 +37,7 @@ CREATE TABLE users (
   FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- Streams (Live, VOD, Series, Radio, YouTube)
 CREATE TABLE streams (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -59,6 +61,7 @@ CREATE TABLE streams (
   FOREIGN KEY (reseller_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- TV Series
 CREATE TABLE series (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -74,6 +77,7 @@ CREATE TABLE series (
   FOREIGN KEY (reseller_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Episodes
 CREATE TABLE episodes (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   series_id BIGINT UNSIGNED NOT NULL,
@@ -90,6 +94,7 @@ CREATE TABLE episodes (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- VOD Files (Auto-imported)
 CREATE TABLE vod_files (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -114,6 +119,7 @@ CREATE TABLE vod_files (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Bouquets (Channel Groups)
 CREATE TABLE bouquets (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -126,6 +132,7 @@ CREATE TABLE bouquets (
   FOREIGN KEY (reseller_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Bouquet-Stream Mapping
 CREATE TABLE bouquet_streams (
   bouquet_id BIGINT UNSIGNED,
   stream_id BIGINT UNSIGNED,
@@ -135,6 +142,7 @@ CREATE TABLE bouquet_streams (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Server Nodes (Edge Workers)
 CREATE TABLE server_nodes (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   hostname VARCHAR(128) NOT NULL,
@@ -151,7 +159,7 @@ CREATE TABLE server_nodes (
   INDEX idx_active (is_active)
 ) ENGINE=InnoDB;
 
-
+-- Stream Tokens (HMAC-Secure URLs)
 CREATE TABLE stream_tokens (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
@@ -169,6 +177,7 @@ CREATE TABLE stream_tokens (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Activity Logs
 CREATE TABLE activity_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NULL,
@@ -183,28 +192,12 @@ CREATE TABLE activity_logs (
   INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
 
-
+-- System Configuration (Versioned)
 CREATE TABLE system_config (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  `key` VARCHAR(128) UNIQUE NOT NULL,
-  `value` JSON NOT NULL,
+  config_key VARCHAR(128) UNIQUE NOT NULL, -- changed from `key`
+  value JSON NOT NULL,
   description TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   version INT DEFAULT 1
 ) ENGINE=InnoDB;
-
--- Example:
--- { "key": "hls.segment_duration", "value": { "value": 4, "unit": "seconds" } }
-
-
--- Example ClickHouse table
-CREATE TABLE stream_stats (
-  user_id UInt64,
-  stream_id UInt64,
-  start_time DateTime,
-  end_time DateTime,
-  bytes_sent UInt64,
-  ip IPv4,
-  duration_sec UInt32
-) ENGINE = MergeTree()
-ORDER BY (stream_id, start_time);

@@ -7,11 +7,11 @@ CREATE DATABASE IF NOT EXISTS dragon_shield_core
 
 USE dragon_shield_core;
 
--- Users (Admin, Resellers, Customers)
+-- Users
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  parent_id BIGINT UNSIGNED DEFAULT NULL, -- for reseller hierarchy
-  reseller_level TINYINT DEFAULT 0, -- 0=user, 1=Level2, 2=Level1, 3=Master
+  parent_id BIGINT UNSIGNED DEFAULT NULL,
+  reseller_level TINYINT DEFAULT 0,
   username VARCHAR(64) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   email VARCHAR(128) UNIQUE,
@@ -21,15 +21,15 @@ CREATE TABLE users (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   last_login DATETIME NULL,
   timezone VARCHAR(64) DEFAULT 'UTC',
-  api_token VARCHAR(128) NULL, -- JWT base or revocable
+  api_token VARCHAR(128) NULL,
   api_token_expiry DATETIME NULL,
-  fingerprint_hash VARCHAR(128) NULL, -- for device lock
+  fingerprint_hash VARCHAR(128) NULL,
   ip_lock_enabled TINYINT DEFAULT 0,
-  allowed_ip VARCHAR(45) NULL, -- IPv4/IPv6 CIDR (e.g. 192.168.1.0/24)
+  allowed_ip VARCHAR(45) NULL, -- ✅ Fix: VARCHAR(45) în loc de CIDR
   credit_balance DECIMAL(10,2) DEFAULT 0.00,
   max_connections INT DEFAULT 1,
-  bandwidth_limit_kbps INT DEFAULT 0, -- 0 = unlimited
-  branding JSON NULL, -- { "logo": "", "theme": "", "domain": "" }
+  bandwidth_limit_kbps INT DEFAULT 0,
+  branding JSON NULL,
   INDEX idx_username (username),
   INDEX idx_parent (parent_id),
   INDEX idx_status (status),
@@ -37,21 +37,21 @@ CREATE TABLE users (
   FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- Streams (Live, VOD, Series, Radio, YouTube)
+-- Streams
 CREATE TABLE streams (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
   type ENUM('live', 'vod', 'series', 'radio', 'youtube') NOT NULL,
   name VARCHAR(256) NOT NULL,
-  stream_source TEXT NOT NULL, -- URL or file path
-  is_protected TINYINT DEFAULT 1, -- 1 = token required
-  transcoding_profile JSON NULL, -- { "passthrough": false, "video": [...], "audio": [...] }
+  stream_source TEXT NOT NULL,
+  is_protected TINYINT DEFAULT 1,
+  transcoding_profile JSON NULL,
   abr_enabled TINYINT DEFAULT 0,
-  abr_profiles JSON NULL, -- [ { "name": "720p", "bitrate": "3000k", "size": "1280x720" }, ... ]
-  hls_segment_duration SMALLINT DEFAULT 4, -- seconds
-  output_path VARCHAR(512) NOT NULL, -- e.g., /home/dragon-shield/streams/live/1234.m3u8
-  yt_dlp_proxy TINYINT DEFAULT 0, -- 1 = use yt-dlp for YouTube
-  custom_ffmpeg_cmd TEXT NULL, -- optional override
+  abr_profiles JSON NULL,
+  hls_segment_duration SMALLINT DEFAULT 4,
+  output_path VARCHAR(512) NOT NULL,
+  yt_dlp_proxy TINYINT DEFAULT 0,
+  custom_ffmpeg_cmd TEXT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   active TINYINT DEFAULT 1,
@@ -61,7 +61,7 @@ CREATE TABLE streams (
   FOREIGN KEY (reseller_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- TV Series
+-- Series
 CREATE TABLE series (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE episodes (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- VOD Files (Auto-imported)
+-- VOD Files
 CREATE TABLE vod_files (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE vod_files (
   cast TEXT NULL,
   duration_sec INT NULL,
   cover_url VARCHAR(512) NULL,
-  stream_id BIGINT UNSIGNED NOT NULL, -- links to streams table
+  stream_id BIGINT UNSIGNED NOT NULL,
   status ENUM('pending', 'transcoding', 'ready', 'failed') DEFAULT 'pending',
   metadata_source ENUM('filename', 'tmdb', 'manual') DEFAULT 'filename',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -119,7 +119,7 @@ CREATE TABLE vod_files (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Bouquets (Channel Groups)
+-- Bouquets
 CREATE TABLE bouquets (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reseller_id BIGINT UNSIGNED NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE bouquet_streams (
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Server Nodes (Edge Workers)
+-- Server Nodes
 CREATE TABLE server_nodes (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   hostname VARCHAR(128) NOT NULL,
@@ -159,13 +159,13 @@ CREATE TABLE server_nodes (
   INDEX idx_active (is_active)
 ) ENGINE=InnoDB;
 
--- Stream Tokens (HMAC-Secure URLs)
+-- Stream Tokens
 CREATE TABLE stream_tokens (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
   stream_id BIGINT UNSIGNED NOT NULL,
   token VARCHAR(64) NOT NULL,
-  signature VARCHAR(128) NOT NULL, -- HMAC-SHA256(token + ts + secret)
+  signature VARCHAR(128) NOT NULL,
   expires_at DATETIME NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   used_count INT DEFAULT 0,
@@ -181,8 +181,8 @@ CREATE TABLE stream_tokens (
 CREATE TABLE activity_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NULL,
-  action VARCHAR(64) NOT NULL, -- login, stream_start, api_call
-  ip_address INET NOT NULL,
+  action VARCHAR(64) NOT NULL,
+  ip_address VARCHAR(45) NOT NULL, -- ✅ Fix: VARCHAR(45) în loc de INET
   user_agent TEXT NULL,
   details JSON NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -192,10 +192,10 @@ CREATE TABLE activity_logs (
   INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
 
--- System Configuration (Versioned)
+-- System Config
 CREATE TABLE system_config (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  config_key VARCHAR(128) UNIQUE NOT NULL, -- changed from `key`
+  config_key VARCHAR(128) UNIQUE NOT NULL,
   value JSON NOT NULL,
   description TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
